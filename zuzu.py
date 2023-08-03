@@ -26,7 +26,7 @@ if 'company_value' not in st.session_state:
 
 st.title("투자 계산 프로그램")
 
-# 표 업로드 
+# 데이터 업로드 
 uploaded_file = st.file_uploader("이전에 저장해 둔 것 업로드", type=['csv'])
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
@@ -56,7 +56,7 @@ if col2_c.button("투자자 추가"):
     elif not stockNum.isdigit(): # 투자 주식 수가 숫자인지 확인
         st.error("투자 주식 수는 숫자만 입력해주세요.") # 에러 메시지 출력
     else:
-        st.write(userName, "Write Test")
+        #st.write(userName, "Write Test")
         new_row = pd.DataFrame(
             {
                 "투자자명" : [userName],
@@ -66,18 +66,19 @@ if col2_c.button("투자자 추가"):
         )
         df = st.session_state.df
         st.session_state.df = pd.concat([df, new_row], ignore_index=True)
-        print(df)
+        print(st.session_state.df)
         #st.session_state.df = st.session_state.df.append(new_row, ignore_index=True)
 
 
 
 
-# 콜백 함수 정의 
+# 업데이트 DF
 def update_df(df_data):
     st.markdown("**정보 편집기**")
     df = st.data_editor(df_data.drop("비율", axis=1), disabled=("비율",), key="data_editor") # 편집기 출력
     df["비율"] = pd.to_numeric(df["투자 주식 수"]) / pd.to_numeric(df["투자 주식 수"]).sum() # 비율 계산 
     df["비율"] = df["비율"].apply(lambda x: '{:,.2%}'.format(x)) # 소수 -> 퍼센트 변환 
+    st.session_state.df = df
     
     st.markdown("**비율 계산**")
     st.write(df)
@@ -103,7 +104,7 @@ df = update_df(st.session_state.df)
 #csv = df.to_csv(index=False).encode('utf-8')
 st.download_button(
     label="투자자 내용 저장하기 (csv file)",
-    data=df.to_csv(index=False).encode('utf-8'),
+    data=st.session_state.df.to_csv(index=False).encode('utf-8'),
     file_name='df.csv',
     mime='text/csv',
 )
