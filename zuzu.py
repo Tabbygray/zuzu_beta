@@ -12,6 +12,15 @@ st.set_page_config(layout="wide")
 if 'df_list' not in st.session_state:
     st.session_state.df_list = []
 
+if 'stage_statistics_table' not in st.session_state:
+    st.session_state.stage_statistics_table = [pd.DataFrame(
+        {
+            "A" : ["총 주식","총 주주", "프리 밸류", "투자금", "포스트 밸류"],
+            "B" : ["-","-","-","-","-"],
+        }
+    )
+    ]
+
 # df 세션값
 if 'df' not in st.session_state:
     st.session_state.df = pd.DataFrame(
@@ -25,6 +34,7 @@ if 'df' not in st.session_state:
     st.session_state.df_list.append(st.session_state.df)
 
 df_list = st.session_state.df_list
+stage_statistics_table = st.session_state.stage_statistics_table
 df = st.session_state.df
 
 # df_stat 세션값
@@ -97,33 +107,33 @@ with st.sidebar:
                     "소유 비중" : [investment]
                 }
             )
-            df = st.session_state.df_list[0]
+            df = df_list[0]
             st.session_state.df_list[0] = pd.concat([df, new_row], ignore_index=True)
     
     # 정보 편집 표
     st.markdown("**정보 편집기**")
     sliced_df = st.session_state.df_list[0].drop(["비율", "소유 비중"], axis=1)
-    df = st.data_editor(sliced_df, key="data_editor") # 편집기 출력
-    df["비율"] = pd.to_numeric(df["투자 주식 수"]) / pd.to_numeric(df["투자 주식 수"]).sum() # 비율 계산 
-    df["비율"] = df["비율"] # 소수 -> 퍼센트 변환 
-    df["소유 비중"] = st.session_state.company_value * df["비율"]
+    df_list[0] = st.data_editor(sliced_df, key="data_editor") # 편집기 출력
+    df_list[0]["비율"] = pd.to_numeric(df_list[0]["투자 주식 수"]) / pd.to_numeric(df_list[0]["투자 주식 수"]).sum() # 비율 계산 
+    df_list[0]["비율"] = df_list[0]["비율"] # 소수 -> 퍼센트 변환 
+    df_list[0]["소유 비중"] = st.session_state.company_value * df_list[0]["비율"]
          
 
     # 코어 테이블 출력 시작
     st.markdown("**비율 계산**")
     # 임시로 퍼센트 변환용 
-    df2 = df
+    df2 = df_list[0]
     df2["비율"] = df2["비율"].apply(lambda x: '{:,.2%}'.format(x))
     st.dataframe(df2)
 
      # 통계 표 보여주기 
     st.markdown("**통계**")
-    st.session_state.df_stat.loc[0, "B"] = pd.to_numeric(df["투자 주식 수"]).sum()
-    st.session_state.df_stat.loc[1, "B"] = df.shape[0]
-    st.session_state.df_stat.loc[2, "B"] = (f"{st.session_state.companyValue:,}원")
-    zoodang_price = int(st.session_state.companyValue) // pd.to_numeric(df["투자 주식 수"]).sum()
+    st.session_state.df_stat.loc[0, "B"] = pd.to_numeric(df_list[0]["투자 주식 수"]).sum()
+    st.session_state.df_stat.loc[1, "B"] = df_list[0].shape[0]
+    st.session_state.df_stat.loc[2, "B"] = (f"{st.session_state.companyValue:,}")
+    zoodang_price = int(st.session_state.companyValue) // pd.to_numeric(df_list[0]["투자 주식 수"]).sum()
     st.session_state.zoodang_price = zoodang_price
-    st.session_state.df_stat.loc[3, "B"] = (f"{zoodang_price:,}원")
+    st.session_state.df_stat.loc[3, "B"] = (f"{zoodang_price:,}")
     st.dataframe(st.session_state.df_stat.set_index(st.session_state.df_stat.columns[0]))
     #st.session_state.df = new_df
     
@@ -159,12 +169,17 @@ st.write(f'이 금액으로 사게 되는 주식량 = {newStockNum}')
 st.write(f'☑ {((newInvestorAmount // st.session_state.zoodang_price)*st.session_state.zoodang_price)}(조정된 투자금액) ÷ {st.session_state.zoodang_price}(주당 가격) = {newStockNum}(개)')
 
 st.write("현재 라운드 수 :",len(df_list))
+
+# 포스트밸류, 프리밸류 테이블에 들어갈 정보형 정의
+
+
+
 # 라운드 추가 버튼 
 if st.button("라운드 추가"):
     if newPreValue == "" or newInvestorName == "" or newInvestorAmount == "": # 입력칸 비어있는지 확인 
         st.error("프리밸류, 투자자 이름과 투자금액을 모두 입력해주세요.")
     else :
-        new_df = df
+        new_df = df_list[len(df_list)-1]
         new_row = pd.DataFrame(
                 {
                     "투자자명" : [newInvestorName],
@@ -175,7 +190,7 @@ if st.button("라운드 추가"):
             )
         new_df = pd.concat([new_df, new_row], ignore_index=True)
         
-        df_list[0] = df # 왼쪽 편집기에서 변경한 내용 반영 
+        # df_list[0] = df # 왼쪽 편집기에서 변경한 내용 반영 
         df_list.append(new_df)
         st.session_state.df_list = df_list # DF_list 세션 갱신
         print("@@debug:",len(df_list))
@@ -183,14 +198,30 @@ if st.button("라운드 추가"):
         index_to_last = len(df_list)-1
         df_list[index_to_last]["비율"] = pd.to_numeric(df_list[index_to_last]["투자 주식 수"]) / pd.to_numeric(df_list[index_to_last]["투자 주식 수"]).sum() # 비율 계산 
         df_list[index_to_last]["비율"] = df_list[index_to_last]["비율"] # 소수 -> 퍼센트 변환 
-        df_list[index_to_last]["소유 비중"] = st.session_state.company_value * df_list[index_to_last]["비율"]
-
+        st.session_state.company_value += (newInvestorAmount)
+        df_list[index_to_last]["소유 비중"] = (st.session_state.company_value )* df_list[index_to_last]["비율"]
         
+        # 아래쪽 통계 테이블 추가
+        statistics_to_add = pd.DataFrame(
+            {
+                "A" : ["총 주식","총 주주", "프리 밸류", "투자금", "포스트 밸류"],
+                "B" : [pd.to_numeric(df_list[len(df_list)-1]["투자 주식 수"]).sum(),df_list[len(df_list)-1].shape[0],newPreValue,newInvestorAmount,newPreValue+newInvestorAmount],
+            }
+        )
+        stage_statistics_table.append(statistics_to_add)
+       
 
-# 결과 출력 
+# 스테이지 출력 
 cols = st.columns(len(df_list))
 for i, df in enumerate(df_list):
     cols[i].dataframe(df)
+
+# 프리, 포스트 밸류 출력
+
+cols2 = st.columns(len(stage_statistics_table))
+for i, df in enumerate(stage_statistics_table):
+    cols2[i].dataframe(df)
+
 
 
 
